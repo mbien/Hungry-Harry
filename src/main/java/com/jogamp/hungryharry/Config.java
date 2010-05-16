@@ -4,8 +4,6 @@
 package com.jogamp.hungryharry;
 
 import java.util.List;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -13,7 +11,7 @@ import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.XmlValue;
 
 /**
- * Hungry Harrie's configuration.
+ * Hungry Harry's configuration.
  * @author Michael Bien
  */
 @XmlType(name = "")
@@ -84,7 +82,7 @@ public class Config {
         public final String link;
 
         @XmlElement(name="feed")
-        public final List<String> feeds;
+        public final List<PlanetFeed> feeds;
 
         @XmlElement(name="template")
         public final String templatePath;
@@ -96,6 +94,34 @@ public class Config {
             link = null;
             feeds = null;
             templatePath = null;
+        }
+
+        public String getLink() {
+            return link;
+        }
+
+        @XmlType
+        public static class PlanetFeed {
+
+            @XmlValue
+            public String type;
+
+            public String getSpecificType() {
+                return type;
+            }
+
+            public String getFeedType() {
+                if(type.contains("atom"))
+                    return "atom";
+                if(type.contains("rss"))
+                    return "rss";
+                return "";
+            }
+
+            public String getFileName() {
+                return type+".xml";
+            }
+
         }
     }
 }

@@ -5,7 +5,6 @@ package com.jogamp.hungryharry;
 
 import com.jogamp.hungryharry.Config.Planet;
 import com.sun.syndication.io.SyndFeedOutput;
-import java.io.PrintWriter;
 import com.sun.syndication.feed.synd.SyndEntry;
 import com.sun.syndication.fetcher.FetcherException;
 import com.sun.syndication.io.FeedException;
@@ -21,11 +20,15 @@ import com.sun.syndication.fetcher.FeedFetcher;
 import com.sun.syndication.fetcher.impl.FeedFetcherCache;
 import com.sun.syndication.fetcher.impl.HashMapFeedInfoCache;
 import com.sun.syndication.fetcher.impl.HttpURLFeedFetcher;
-import java.io.BufferedReader;
+import freemarker.template.Configuration;
+import freemarker.template.DefaultObjectWrapper;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.Writer;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,21 +99,21 @@ public class FeedAggregator {
         Planet planet = config.planet;
         String path = cutoffTail(planet.templatePath, separatorChar);
 
-        for (String feedType : planet.feeds) {
+        for (Planet.PlanetFeed planetFeed : planet.feeds) {
 
             try {
                 SyndFeed feed = new SyndFeedImpl();
-                feed.setFeedType(feedType);
+                feed.setFeedType(planetFeed.type);
 
                 feed.setTitle(planet.title);
                 feed.setDescription(planet.description);
                 feed.setAuthor(planet.author);
-                feed.setLink(planet.link);
+                feed.setLink(planet.link+separatorChar+planetFeed.getFileName());
                 feed.setEntries(entries);
 
                 SyndFeedOutput output = new SyndFeedOutput();
 
-                output.output(feed, new File(path+separatorChar+feedType+".xml"));
+                output.output(feed, new File(path+separatorChar+planetFeed.getFileName()));
 
             } catch (IOException ex) {
                 LOG.log(SEVERE, null, ex);
@@ -120,7 +123,7 @@ public class FeedAggregator {
         }
 
         StringBuilder content = new StringBuilder();
-        int max = 20;
+        int max = 10;
         int n = 0;
         for (SyndEntry entry : entries) {
             if(n++>max) {
@@ -139,17 +142,31 @@ public class FeedAggregator {
 
         }
 
+        HashMap<String, Object> root = new HashMap<String, Object>();
+        root.put("content", content.toString());
+        root.put("planet", planet);
+        root.put("feeds", planet.feeds);
+
         try {
-            StringBuilder template = readFileAsString(planet.templatePath);
 
-            replace(template, "@atom@", planet.link);
-            replace(template, "@rss@", planet.link);
-            replace(template, "@content@", content.toString());
+            Configuration cfg = new Configuration();
+            // Specify the data source where the template files come from.
+            // Here I set a file directory for it:
+            cfg.setDirectoryForTemplateLoading(new File("/home/mbien/streams"));
+            // Specify how templates will see the data-model. This is an advanced topic...
+            // but just use this:
+            cfg.setObjectWrapper(new DefaultObjectWrapper());
+            Template temp = cfg.getTemplate("planet-template.html");
 
-            FileOutputStream fos = new FileOutputStream(new File(path+separator+"planet.html"));
-            fos.write(template.toString().getBytes());
+            Writer writer = new FileWriter(new File(path+separator+"planet.html"));
+
+
+            temp.process(root, writer);
+            writer.close();
 
         } catch (IOException ex) {
+            LOG.log(SEVERE, null, ex);
+        } catch (TemplateException ex) {
             LOG.log(SEVERE, null, ex);
         }
     }
@@ -163,21 +180,6 @@ public class FeedAggregator {
         sb.replace(start, start+token.length(), replacement);
         return sb;
     }
-
-    private static StringBuilder readFileAsString(String filePath) throws java.io.IOException{
-        StringBuilder fileData = new StringBuilder(1000);
-        BufferedReader reader = new BufferedReader(new FileReader(filePath));
-        char[] buf = new char[1024];
-        int numRead=0;
-        while((numRead=reader.read(buf)) != -1){
-            String readData = String.valueOf(buf, 0, numRead);
-            fileData.append(readData);
-            buf = new char[1024];
-        }
-        reader.close();
-        return fileData;
-    }
-
 
 
     public static void main(String[] args) throws MalformedURLException {

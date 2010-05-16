@@ -2,9 +2,9 @@
 <config>
 
     <planet title="JogAmp Streams"
-                    description="JogAmp Aggregated Feeds"
-                    author="Hungry Harry"
-                    link="http://jogamp.org/stream">
+            description="JogAmp Aggregated Feeds"
+            author="Hungry Harry"
+            link="/home/mbien/streams">
         <feed>atom_0.3</feed>
         <feed>rss_2.0</feed>
         <template>/home/mbien/streams/planet-template.html</template>
