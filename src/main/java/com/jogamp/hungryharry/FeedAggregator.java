@@ -3,6 +3,7 @@
  */
 package com.jogamp.hungryharry;
 
+import com.jogamp.hungryharry.Config.Feed;
 import com.jogamp.hungryharry.Config.Planet;
 import com.sun.syndication.io.SyndFeedOutput;
 import com.sun.syndication.feed.synd.SyndEntry;
@@ -29,6 +30,7 @@ import java.io.FileWriter;
 import java.io.Writer;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,78 +57,21 @@ public class FeedAggregator {
 
         Config config = null;
         try {
-            Unmarshaller unmarshaller = JAXBContext.newInstance(Config.class).createUnmarshaller();
-            Object obj = unmarshaller.unmarshal(getClass().getResourceAsStream("config.xml"));
-            config = (Config) obj;
+            config = readConfiguration();
         } catch (JAXBException ex) {
             throw new RuntimeException("can not read configuration", ex);
         }
 
-
         List<Config.Feed> feeds = config.feed;
-
-        List<URL> urls = new ArrayList<URL>();
-        for (Config.Feed feed : feeds) {
-            urls.add(new URL(feed.url));
-        }
-
-
-        List<SyndEntry> entries = new ArrayList<SyndEntry>();
-
-        FeedFetcherCache feedInfoCache = HashMapFeedInfoCache.getInstance();
-        FeedFetcher feedFetcher = new HttpURLFeedFetcher(feedInfoCache);
-
-        for (int i = 0; i < urls.size(); i++) {
-            try {
-                SyndFeed inFeed = feedFetcher.retrieveFeed(urls.get(i));
-                entries.addAll(inFeed.getEntries());
-            } catch (IOException ex) {
-                LOG.log(WARNING, "skipping feed", ex);
-            } catch (FetcherException ex) {
-                LOG.log(WARNING, "skipping feed", ex);
-            } catch (FeedException ex) {
-                LOG.log(WARNING, "skipping feed", ex);
-            }
-        }
-
-        sort(entries, new Comparator<SyndEntry>() {
-            @Override
-            public int compare(SyndEntry o1, SyndEntry o2) {
-                return o2.getPublishedDate().compareTo(o1.getPublishedDate());
-            }
-        });
+        List<SyndEntry> entries = loadFeeds(feeds);
 
         Planet planet = config.planet;
-        String path = cutoffTail(planet.templatePath, separatorChar);
-
-        for (Planet.PlanetFeed planetFeed : planet.feeds) {
-
-            try {
-                SyndFeed feed = new SyndFeedImpl();
-                feed.setFeedType(planetFeed.type);
-
-                feed.setTitle(planet.title);
-                feed.setDescription(planet.description);
-                feed.setAuthor(planet.author);
-                feed.setLink(planet.link+separatorChar+planetFeed.getFileName());
-                feed.setEntries(entries);
-
-                SyndFeedOutput output = new SyndFeedOutput();
-
-                output.output(feed, new File(path+separatorChar+planetFeed.getFileName()));
-
-            } catch (IOException ex) {
-                LOG.log(SEVERE, null, ex);
-            } catch (FeedException ex) {
-                LOG.log(SEVERE, null, ex);
-            }
-        }
+        String path = createAggregatedFeed(planet, entries);
 
         StringBuilder content = new StringBuilder();
-        int max = 10;
         int n = 0;
         for (SyndEntry entry : entries) {
-            if(n++>max) {
+            if(n++ >= planet.maxEntries) {
                 break;
             }
             String link = entry.getLink();
@@ -141,14 +86,17 @@ public class FeedAggregator {
             }
 
         }
+        generatePage(content, planet, path);
+    }
 
-        HashMap<String, Object> root = new HashMap<String, Object>();
+    private void generatePage(StringBuilder content, Planet planet, String path) {
+
+        Map<String, Object> root = new HashMap<String, Object>();
         root.put("content", content.toString());
         root.put("planet", planet);
         root.put("feeds", planet.feeds);
 
         try {
-
             Configuration cfg = new Configuration();
             // Specify the data source where the template files come from.
             // Here I set a file directory for it:
@@ -157,18 +105,75 @@ public class FeedAggregator {
             // but just use this:
             cfg.setObjectWrapper(new DefaultObjectWrapper());
             Template temp = cfg.getTemplate("planet-template.html");
-
-            Writer writer = new FileWriter(new File(path+separator+"planet.html"));
-
-
+            Writer writer = new FileWriter(new File(path + separator + "planet.html"));
             temp.process(root, writer);
             writer.close();
-
         } catch (IOException ex) {
             LOG.log(SEVERE, null, ex);
         } catch (TemplateException ex) {
             LOG.log(SEVERE, null, ex);
         }
+    }
+
+    private String createAggregatedFeed(Planet planet, List<SyndEntry> entries) {
+
+        String path = cutoffTail(planet.templatePath, separatorChar);
+
+        for (Planet.PlanetFeed planetFeed : planet.feeds) {
+            try {
+                SyndFeed feed = new SyndFeedImpl();
+
+                feed.setFeedType(planetFeed.type);
+                feed.setTitle(planet.title);
+                feed.setDescription(planet.description);
+                feed.setAuthor(planet.author);
+                feed.setLink(planet.link + separatorChar + planetFeed.getFileName());
+                feed.setEntries(entries);
+
+                SyndFeedOutput output = new SyndFeedOutput();
+                output.output(feed, new File(path + separatorChar + planetFeed.getFileName()));
+
+            } catch (IOException ex) {
+                LOG.log(SEVERE, null, ex);
+            } catch (FeedException ex) {
+                LOG.log(SEVERE, null, ex);
+            }
+        }
+        return path;
+    }
+
+    private List<SyndEntry> loadFeeds(List<Feed> feeds) throws IllegalArgumentException {
+
+        FeedFetcherCache feedInfoCache = HashMapFeedInfoCache.getInstance();
+        FeedFetcher feedFetcher = new HttpURLFeedFetcher(feedInfoCache);
+        List<SyndEntry> entries = new ArrayList<SyndEntry>();
+
+        for (Config.Feed feed : feeds) {
+            try {
+                SyndFeed inFeed = feedFetcher.retrieveFeed(new URL(feed.url));
+                entries.addAll(inFeed.getEntries());
+            } catch (IOException ex) {
+                LOG.log(WARNING, "skipping feed", ex);
+            } catch (FetcherException ex) {
+                LOG.log(WARNING, "skipping feed", ex);
+            } catch (FeedException ex) {
+                LOG.log(WARNING, "skipping feed", ex);
+            }
+        }
+        
+        sort(entries, new Comparator<SyndEntry>() {
+            @Override
+            public int compare(SyndEntry o1, SyndEntry o2) {
+                return o2.getPublishedDate().compareTo(o1.getPublishedDate());
+            }
+        });
+        return entries;
+    }
+
+    private Config readConfiguration() throws JAXBException {
+        Unmarshaller unmarshaller = JAXBContext.newInstance(Config.class).createUnmarshaller();
+        Object obj = unmarshaller.unmarshal(getClass().getResourceAsStream("config.xml"));
+        return (Config) obj;
     }
 
     private String cutoffTail(String text, char cut) {

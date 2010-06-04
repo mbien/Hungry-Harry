@@ -4,13 +4,15 @@
     <planet title="JogAmp Streams"
             description="JogAmp Aggregated Feeds"
             author="Hungry Harry"
+            maxEntries="6"
             link="/home/mbien/streams">
         <feed>atom_0.3</feed>
         <feed>rss_2.0</feed>
         <template>/home/mbien/streams/planet-template.html</template>
     </planet>
-
+<!--
     <feed name="vimeo" url="http://vimeo.com/tag:jogl/rss"/>
+    -->
     <feed name="demoscenepassivist" url="http://gdata.youtube.com/feeds/base/users/DemoscenePassivist/uploads?alt=rss&amp;v=2&amp;orderby=published&amp;client=ytapi-youtube-profile"/>
 
     <template keyword="vimeo" idpattern="http://vimeo.com/([0-9]+)">

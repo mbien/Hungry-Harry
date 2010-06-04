@@ -81,6 +81,9 @@ public class Config {
         @XmlAttribute
         public final String link;
 
+        @XmlAttribute
+        public final int maxEntries;
+
         @XmlElement(name="feed")
         public final List<PlanetFeed> feeds;
 
@@ -94,6 +97,7 @@ public class Config {
             link = null;
             feeds = null;
             templatePath = null;
+            maxEntries = 0;
         }
 
         public String getLink() {
