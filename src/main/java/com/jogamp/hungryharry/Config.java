@@ -90,6 +90,9 @@ public class Config {
         @XmlElement(name="template")
         public final String templatePath;
 
+        @XmlElement(name="output")
+        public final String outputFolder;
+
         public Planet() {
             title = null;
             description = null;
@@ -97,6 +100,7 @@ public class Config {
             link = null;
             feeds = null;
             templatePath = null;
+            outputFolder = null;
             maxEntries = 0;
         }
 

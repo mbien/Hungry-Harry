@@ -5,10 +5,11 @@
             description="JogAmp Aggregated Feeds"
             author="Hungry Harry"
             maxEntries="6"
-            link="/home/mbien/streams">
+            link="/home/mbien/streams/out">
         <feed>atom_0.3</feed>
         <feed>rss_2.0</feed>
         <template>/home/mbien/streams/planet-template.html</template>
+        <output>/home/mbien/streams/out</output>
     </planet>
 <!--
     <feed name="vimeo" url="http://vimeo.com/tag:jogl/rss"/>

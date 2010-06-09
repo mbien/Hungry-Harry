@@ -51,7 +51,11 @@ import static java.io.File.*;
 public class FeedAggregator {
     
     private static final Logger LOG = Logger.getLogger(FeedAggregator.class.getName());
+    private final String configFile;
 
+    private FeedAggregator(String configFile) {
+        this.configFile = configFile;
+    }
 
     private void aggregate() throws MalformedURLException {
 
@@ -66,7 +70,9 @@ public class FeedAggregator {
         List<SyndEntry> entries = loadFeeds(feeds);
 
         Planet planet = config.planet;
-        String path = createAggregatedFeed(planet, entries);
+        new File(planet.outputFolder).mkdirs();
+
+        createAggregatedFeed(planet, entries);
 
         StringBuilder content = new StringBuilder();
         int n = 0;
@@ -86,26 +92,29 @@ public class FeedAggregator {
             }
 
         }
-        generatePage(content, planet, path);
+        generatePage(content.toString(), planet);
     }
 
-    private void generatePage(StringBuilder content, Planet planet, String path) {
+    private void generatePage(String content, Planet planet) {
 
         Map<String, Object> root = new HashMap<String, Object>();
-        root.put("content", content.toString());
+        root.put("content", content);
         root.put("planet", planet);
         root.put("feeds", planet.feeds);
 
         try {
+            String templateFolder = cutoffTail(planet.templatePath, '/');
+            String templateName = planet.templatePath.substring(templateFolder.length());
+
             Configuration cfg = new Configuration();
             // Specify the data source where the template files come from.
             // Here I set a file directory for it:
-            cfg.setDirectoryForTemplateLoading(new File("/home/mbien/streams"));
+            cfg.setDirectoryForTemplateLoading(new File(templateFolder));
             // Specify how templates will see the data-model. This is an advanced topic...
             // but just use this:
             cfg.setObjectWrapper(new DefaultObjectWrapper());
-            Template temp = cfg.getTemplate("planet-template.html");
-            Writer writer = new FileWriter(new File(path + separator + "planet.html"));
+            Template temp = cfg.getTemplate(templateName);
+            Writer writer = new FileWriter(new File(planet.outputFolder + separator + "planet.html"));
             temp.process(root, writer);
             writer.close();
         } catch (IOException ex) {
@@ -115,9 +124,7 @@ public class FeedAggregator {
         }
     }
 
-    private String createAggregatedFeed(Planet planet, List<SyndEntry> entries) {
-
-        String path = cutoffTail(planet.templatePath, separatorChar);
+    private void createAggregatedFeed(Planet planet, List<SyndEntry> entries) {
 
         for (Planet.PlanetFeed planetFeed : planet.feeds) {
             try {
@@ -131,7 +138,7 @@ public class FeedAggregator {
                 feed.setEntries(entries);
 
                 SyndFeedOutput output = new SyndFeedOutput();
-                output.output(feed, new File(path + separatorChar + planetFeed.getFileName()));
+                output.output(feed, new File(planet.outputFolder + separatorChar + planetFeed.getFileName()));
 
             } catch (IOException ex) {
                 LOG.log(SEVERE, null, ex);
@@ -139,7 +146,6 @@ public class FeedAggregator {
                 LOG.log(SEVERE, null, ex);
             }
         }
-        return path;
     }
 
     private List<SyndEntry> loadFeeds(List<Feed> feeds) throws IllegalArgumentException {
@@ -172,7 +178,7 @@ public class FeedAggregator {
 
     private Config readConfiguration() throws JAXBException {
         Unmarshaller unmarshaller = JAXBContext.newInstance(Config.class).createUnmarshaller();
-        Object obj = unmarshaller.unmarshal(getClass().getResourceAsStream("config.xml"));
+        Object obj = unmarshaller.unmarshal(getClass().getResourceAsStream(configFile));
         return (Config) obj;
     }
 
@@ -186,9 +192,14 @@ public class FeedAggregator {
         return sb;
     }
 
+    public static void main(String... args) throws MalformedURLException {
 
-    public static void main(String[] args) throws MalformedURLException {
-        new FeedAggregator().aggregate();
+        if(args.length < 1) {
+            System.out.println("args must contain a path to the configuration file");
+            return;
+        }
+
+        new FeedAggregator(args[0]).aggregate();
     }
 
 }
