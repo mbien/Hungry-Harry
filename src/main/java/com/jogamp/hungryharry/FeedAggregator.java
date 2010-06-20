@@ -9,7 +9,9 @@ import com.sun.syndication.io.SyndFeedOutput;
 import com.sun.syndication.feed.synd.SyndEntry;
 import com.sun.syndication.fetcher.FetcherException;
 import com.sun.syndication.io.FeedException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ import freemarker.template.DefaultObjectWrapper;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.Writer;
 import java.util.Comparator;
@@ -63,6 +66,8 @@ public class FeedAggregator {
         try {
             config = readConfiguration();
         } catch (JAXBException ex) {
+            throw new RuntimeException("can not read configuration", ex);
+        } catch (FileNotFoundException ex) {
             throw new RuntimeException("can not read configuration", ex);
         }
 
@@ -176,9 +181,15 @@ public class FeedAggregator {
         return entries;
     }
 
-    private Config readConfiguration() throws JAXBException {
+    private Config readConfiguration() throws JAXBException, FileNotFoundException {
         Unmarshaller unmarshaller = JAXBContext.newInstance(Config.class).createUnmarshaller();
-        Object obj = unmarshaller.unmarshal(getClass().getResourceAsStream(configFile));
+        LOG.info("reading config file: " + configFile);
+        InputStream is = getClass().getResourceAsStream(configFile);
+        if(is == null) {
+            is = new FileInputStream(configFile);
+        }
+
+        Object obj = unmarshaller.unmarshal(is);
         return (Config) obj;
     }
 
