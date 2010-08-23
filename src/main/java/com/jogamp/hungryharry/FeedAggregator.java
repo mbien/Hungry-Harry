@@ -12,7 +12,6 @@ import com.sun.syndication.io.FeedException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +23,7 @@ import com.sun.syndication.fetcher.impl.FeedFetcherCache;
 import com.sun.syndication.fetcher.impl.HashMapFeedInfoCache;
 import com.sun.syndication.fetcher.impl.HttpURLFeedFetcher;
 import freemarker.template.Configuration;
-import freemarker.template.DefaultObjectWrapper;
+import freemarker.template.ObjectWrapper;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import java.io.File;
@@ -52,7 +51,7 @@ import static java.io.File.*;
  *
  */
 public class FeedAggregator {
-    
+
     private static final Logger LOG = Logger.getLogger(FeedAggregator.class.getName());
     private final String configFile;
 
@@ -60,7 +59,7 @@ public class FeedAggregator {
         this.configFile = configFile;
     }
 
-    private void aggregate() throws MalformedURLException {
+    private void aggregate() {
 
         Config config = null;
         try {
@@ -72,15 +71,17 @@ public class FeedAggregator {
         }
 
         List<Config.Feed> feeds = config.feed;
-        List<SyndEntry> entries = loadFeeds(feeds);
+        List<SyndEntry> entries = downloadFeeds(feeds);
 
         Planet planet = config.planet;
         new File(planet.outputFolder).mkdirs();
 
         createAggregatedFeed(planet, entries);
 
-        StringBuilder content = new StringBuilder();
+        List<Map<String, Object>> aggregatedEntries = new ArrayList<Map<String, Object>>(entries.size());
         int n = 0;
+
+
         for (SyndEntry entry : entries) {
             if(n++ >= planet.maxEntries) {
                 break;
@@ -88,22 +89,35 @@ public class FeedAggregator {
             String link = entry.getLink();
             for (Config.Template template : config.template) {
                 if(link.contains(template.keyword)) {
-                    Pattern pattern = Pattern.compile(template.idpattern);
-                    Matcher matcher = pattern.matcher(link);
+                    Matcher matcher = Pattern.compile(template.idpattern).matcher(link);
                     matcher.find();
-                    content.append(template.text.replaceAll("#id#", matcher.group(1)));
+                    String playercode = template.text.replaceAll("#id#", matcher.group(1));
+
+                    Map<String, Object> map = new HashMap<String, Object>();
+                    map.put("player", playercode);
+
+                    String filteredDescription = entry.getDescription().getValue();
+                    if(template.descriptionfilter != null) {
+                        Pattern descPattern = Pattern.compile(template.descriptionfilter);
+                        Matcher filter = descPattern.matcher(filteredDescription);
+                        filter.find();
+                        filteredDescription = filter.group(1);
+                    }
+                    map.put("description", filteredDescription);
+
+                    aggregatedEntries.add(map);
                     break;
                 }
             }
 
         }
-        generatePage(content.toString(), planet);
+        generatePage(aggregatedEntries, planet);
     }
 
-    private void generatePage(String content, Planet planet) {
+    private void generatePage(List<Map<String, Object>> entries, Planet planet) {
 
         Map<String, Object> root = new HashMap<String, Object>();
-        root.put("content", content);
+        root.put("entries", entries);
         root.put("planet", planet);
         root.put("feeds", planet.feeds);
 
@@ -117,10 +131,11 @@ public class FeedAggregator {
             cfg.setDirectoryForTemplateLoading(new File(templateFolder));
             // Specify how templates will see the data-model. This is an advanced topic...
             // but just use this:
-            cfg.setObjectWrapper(new DefaultObjectWrapper());
-            Template temp = cfg.getTemplate(templateName);
+            cfg.setObjectWrapper(ObjectWrapper.DEFAULT_WRAPPER);
+
+            Template template = cfg.getTemplate(templateName);
             Writer writer = new FileWriter(new File(planet.outputFolder + separator + "planet.html"));
-            temp.process(root, writer);
+            template.process(root, writer);
             writer.close();
         } catch (IOException ex) {
             LOG.log(SEVERE, null, ex);
@@ -153,13 +168,14 @@ public class FeedAggregator {
         }
     }
 
-    private List<SyndEntry> loadFeeds(List<Feed> feeds) throws IllegalArgumentException {
+    private List<SyndEntry> downloadFeeds(List<Feed> feeds) throws IllegalArgumentException {
 
         FeedFetcherCache feedInfoCache = HashMapFeedInfoCache.getInstance();
         FeedFetcher feedFetcher = new HttpURLFeedFetcher(feedInfoCache);
         List<SyndEntry> entries = new ArrayList<SyndEntry>();
 
         for (Config.Feed feed : feeds) {
+            LOG.info("downloading "+feed);
             try {
                 SyndFeed inFeed = feedFetcher.retrieveFeed(new URL(feed.url));
                 entries.addAll(inFeed.getEntries());
@@ -171,7 +187,7 @@ public class FeedAggregator {
                 LOG.log(WARNING, "skipping feed", ex);
             }
         }
-        
+
         sort(entries, new Comparator<SyndEntry>() {
             @Override
             public int compare(SyndEntry o1, SyndEntry o2) {
@@ -203,7 +219,7 @@ public class FeedAggregator {
         return sb;
     }
 
-    public static void main(String... args) throws MalformedURLException {
+    public static void main(String... args) {
 
         if(args.length < 1) {
             System.out.println("args must contain a path to the configuration file");

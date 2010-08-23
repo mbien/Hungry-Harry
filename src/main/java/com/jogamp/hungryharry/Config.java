@@ -45,6 +45,12 @@ public class Config {
             name = null;
             url = null;
         }
+
+        @Override
+        public String toString() {
+            return getClass().getName() + "[" + name + ", " + url+"]";
+        }
+
     }
 
     @XmlType
@@ -56,6 +62,9 @@ public class Config {
         @XmlAttribute(name="idpattern")
         public final String idpattern;
 
+        @XmlAttribute
+        public final String descriptionfilter;
+
         @XmlValue
         public final String text;
 
@@ -63,6 +72,12 @@ public class Config {
             keyword = null;
             text = null;
             idpattern = null;
+            descriptionfilter = null;
+        }
+
+        @Override
+        public String toString() {
+            return getClass().getName() + "["+ keyword +"]";
         }
     }
 

@@ -5,11 +5,11 @@
             description="JogAmp Aggregated Feeds"
             author="Hungry Harry"
             maxEntries="6"
-            link="/home/mbien/streams/out">
+            link="/home/mbien/NetBeansProjects/JOGAMP/stream">
         <feed>atom_0.3</feed>
         <feed>rss_2.0</feed>
-        <template>/home/mbien/streams/planet-template.html</template>
-        <output>/home/mbien/streams/out</output>
+        <template>/home/mbien/NetBeansProjects/JOGAMP/planet2/config/stream-template.html</template>
+        <output>/home/mbien/NetBeansProjects/JOGAMP/stream</output>
     </planet>
 <!--
     <feed name="vimeo" url="http://vimeo.com/tag:jogl/rss"/>
@@ -28,7 +28,7 @@
             </object>
 ]]>
     </template>
-    <template keyword="youtube" idpattern="http://www.youtube.com/watch\?v=([^&amp;]+)">
+    <template keyword="youtube" idpattern="http://www.youtube.com/watch\?v=([^&amp;]+)" descriptionfilter="&lt;span&gt;(.*)&lt;/span&gt;">
 <![CDATA[
             <object width="480" height="385">
                 <param name="movie" value="http://www.youtube.com/v/#id#&hl=en_US&fs=1&rel=0&color1=0x2b405b&color2=0x6b8ab6&hd=1"/>
