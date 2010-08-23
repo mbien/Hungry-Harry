@@ -5,6 +5,7 @@ package com.jogamp.hungryharry;
 
 import com.jogamp.hungryharry.Config.Feed;
 import com.jogamp.hungryharry.Config.Planet;
+import com.sun.syndication.feed.synd.SyndContent;
 import com.sun.syndication.io.SyndFeedOutput;
 import com.sun.syndication.feed.synd.SyndEntry;
 import com.sun.syndication.fetcher.FetcherException;
@@ -71,7 +72,8 @@ public class FeedAggregator {
         }
 
         List<Config.Feed> feeds = config.feed;
-        List<SyndEntry> entries = downloadFeeds(feeds);
+        List<SyndFeed> syndFeeds = new ArrayList<SyndFeed>();
+        List<SyndEntry> entries = downloadFeeds(feeds, syndFeeds);
 
         Planet planet = config.planet;
         new File(planet.outputFolder).mkdirs();
@@ -86,6 +88,24 @@ public class FeedAggregator {
             if(n++ >= planet.maxEntries) {
                 break;
             }
+            Map<String, Object> map = new HashMap<String, Object>();
+            map.put("title", entry.getTitle());
+            map.put("link", entry.getLink());
+            map.put("published", entry.getPublishedDate());
+            map.put("updated", entry.getUpdatedDate());
+            map.put("description", entry.getDescription());
+            
+            StringBuilder sb = new StringBuilder();
+            List contents = entry.getContents();
+            for (Object content : contents) {
+                sb.append(((SyndContent)content).getValue());
+            }
+            if(sb.length() == 0) {
+                map.put("content", entry.getDescription().getValue());
+            }else{
+                map.put("content", sb);
+            }
+
             String link = entry.getLink();
             for (Config.Template template : config.template) {
                 if(link.contains(template.keyword)) {
@@ -93,7 +113,6 @@ public class FeedAggregator {
                     matcher.find();
                     String playercode = template.text.replaceAll("#id#", matcher.group(1));
 
-                    Map<String, Object> map = new HashMap<String, Object>();
                     map.put("player", playercode);
 
                     String filteredDescription = entry.getDescription().getValue();
@@ -103,24 +122,24 @@ public class FeedAggregator {
                         filter.find();
                         filteredDescription = filter.group(1);
                     }
-                    map.put("description", filteredDescription);
+                    map.put("filteredDescription", filteredDescription);
 
-                    aggregatedEntries.add(map);
                     break;
                 }
             }
+            aggregatedEntries.add(map);
 
         }
-        generatePage(aggregatedEntries, planet);
+        generatePage(syndFeeds, aggregatedEntries, planet);
     }
 
-    private void generatePage(List<Map<String, Object>> entries, Planet planet) {
+    private void generatePage(List<SyndFeed> syndFeeds, List<Map<String, Object>> entries, Planet planet) {
 
         Map<String, Object> root = new HashMap<String, Object>();
         root.put("entries", entries);
         root.put("planet", planet);
-        root.put("feeds", planet.feeds);
-
+        root.put("feedlinks", planet.feeds);
+        root.put("feeds", syndFeeds);
         try {
             String templateFolder = cutoffTail(planet.templatePath, '/');
             String templateName = planet.templatePath.substring(templateFolder.length());
@@ -168,7 +187,7 @@ public class FeedAggregator {
         }
     }
 
-    private List<SyndEntry> downloadFeeds(List<Feed> feeds) throws IllegalArgumentException {
+    private List<SyndEntry> downloadFeeds(List<Feed> feeds, List<SyndFeed> list) throws IllegalArgumentException {
 
         FeedFetcherCache feedInfoCache = HashMapFeedInfoCache.getInstance();
         FeedFetcher feedFetcher = new HttpURLFeedFetcher(feedInfoCache);
@@ -178,6 +197,7 @@ public class FeedAggregator {
             LOG.info("downloading "+feed);
             try {
                 SyndFeed inFeed = feedFetcher.retrieveFeed(new URL(feed.url));
+                list.add(inFeed);
                 entries.addAll(inFeed.getEntries());
             } catch (IOException ex) {
                 LOG.log(WARNING, "skipping feed", ex);
