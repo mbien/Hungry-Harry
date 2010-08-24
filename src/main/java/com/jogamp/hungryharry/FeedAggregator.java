@@ -91,6 +91,7 @@ public class FeedAggregator {
             Map<String, Object> map = new HashMap<String, Object>();
             map.put("title", entry.getTitle());
             map.put("link", entry.getLink());
+            map.put("author", entry.getAuthor());
             map.put("published", entry.getPublishedDate());
             map.put("updated", entry.getUpdatedDate());
             map.put("description", entry.getDescription());
