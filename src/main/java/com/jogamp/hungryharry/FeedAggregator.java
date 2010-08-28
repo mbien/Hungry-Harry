@@ -152,6 +152,7 @@ public class FeedAggregator {
             // Specify how templates will see the data-model. This is an advanced topic...
             // but just use this:
             cfg.setObjectWrapper(ObjectWrapper.DEFAULT_WRAPPER);
+            cfg.setDefaultEncoding("UTF8");
 
             Template template = cfg.getTemplate(templateName);
             Writer writer = new FileWriter(new File(planet.outputFolder + separator + "planet.html"));
