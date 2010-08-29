@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import com.sun.syndication.feed.synd.SyndFeedImpl;
@@ -83,18 +84,20 @@ public class FeedAggregator {
         List<Map<String, Object>> aggregatedEntries = new ArrayList<Map<String, Object>>(entries.size());
         int n = 0;
 
+        LOG.info(entries.size()+" entries found");
 
         for (SyndEntry entry : entries) {
             if(n++ >= planet.maxEntries) {
                 break;
             }
+            SyndContent description = entry.getDescription();
             Map<String, Object> map = new HashMap<String, Object>();
             map.put("title", entry.getTitle());
             map.put("link", entry.getLink());
             map.put("author", entry.getAuthor());
             map.put("published", entry.getPublishedDate());
             map.put("updated", entry.getUpdatedDate());
-            map.put("description", entry.getDescription());
+            map.put("description", description);
             
             StringBuilder sb = new StringBuilder();
             List contents = entry.getContents();
@@ -102,7 +105,7 @@ public class FeedAggregator {
                 sb.append(((SyndContent)content).getValue());
             }
             if(sb.length() == 0) {
-                map.put("content", entry.getDescription().getValue());
+                map.put("content", description.getValue());
             }else{
                 map.put("content", sb);
             }
@@ -116,13 +119,20 @@ public class FeedAggregator {
 
                     map.put("player", playercode);
 
-                    String filteredDescription = entry.getDescription().getValue();
-                    if(template.descriptionfilter != null) {
-                        Pattern descPattern = Pattern.compile(template.descriptionfilter);
-                        Matcher filter = descPattern.matcher(filteredDescription);
-                        filter.find();
-                        filteredDescription = filter.group(1);
+                    String filteredDescription = null;
+                    //TODO sometimes there is only content
+                    if(description == null) {
+                        filteredDescription = sb.toString();
+                    }else{
+                        filteredDescription = description.getValue();
+                        if(template.descriptionfilter != null) {
+                            Pattern descPattern = Pattern.compile(template.descriptionfilter);
+                            Matcher filter = descPattern.matcher(filteredDescription);
+                            filter.find();
+                            filteredDescription = filter.group(1);
+                        }
                     }
+
                     map.put("filteredDescription", filteredDescription);
 
                     break;
@@ -193,14 +203,17 @@ public class FeedAggregator {
 
         FeedFetcherCache feedInfoCache = HashMapFeedInfoCache.getInstance();
         FeedFetcher feedFetcher = new HttpURLFeedFetcher(feedInfoCache);
-        List<SyndEntry> entries = new ArrayList<SyndEntry>();
+        List<SyndEntry> collectedEntries = new ArrayList<SyndEntry>();
 
         for (Config.Feed feed : feeds) {
             LOG.info("downloading "+feed);
             try {
                 SyndFeed inFeed = feedFetcher.retrieveFeed(new URL(feed.url));
                 list.add(inFeed);
-                entries.addAll(inFeed.getEntries());
+                List entries = inFeed.getEntries();
+
+                LOG.info("downloaded "+entries.size()+ " entries");
+                collectedEntries.addAll(entries);
             } catch (IOException ex) {
                 LOG.log(WARNING, "skipping feed", ex);
             } catch (FetcherException ex) {
@@ -210,13 +223,13 @@ public class FeedAggregator {
             }
         }
 
-        sort(entries, new Comparator<SyndEntry>() {
+        sort(collectedEntries, new Comparator<SyndEntry>() {
             @Override
             public int compare(SyndEntry o1, SyndEntry o2) {
                 return o2.getPublishedDate().compareTo(o1.getPublishedDate());
             }
         });
-        return entries;
+        return collectedEntries;
     }
 
     private Config readConfiguration() throws JAXBException, FileNotFoundException {
