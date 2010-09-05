@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import com.sun.syndication.feed.synd.SyndFeedImpl;
@@ -141,16 +140,32 @@ public class FeedAggregator {
             aggregatedEntries.add(map);
 
         }
-        generatePage(syndFeeds, aggregatedEntries, planet);
+
+        int max = planet.maxEntriesPerPage;
+        int pages = (int) Math.ceil(aggregatedEntries.size() / (float)max);
+        System.out.println(pages);
+        for(int i = 0; i < pages; i++) {
+            List<Map<String, Object>> subList = aggregatedEntries.subList(i * max, Math.min(i * max + max, aggregatedEntries.size()-1));
+            generatePage(i, pages, syndFeeds, subList, planet);
+        }
+
     }
 
-    private void generatePage(List<SyndFeed> syndFeeds, List<Map<String, Object>> entries, Planet planet) {
+    private void generatePage(int index, int pages, List<SyndFeed> syndFeeds, List<Map<String, Object>> entries, Planet planet) {
+
+        String name = pageName(planet, index, pages);
 
         Map<String, Object> root = new HashMap<String, Object>();
         root.put("entries", entries);
         root.put("planet", planet);
         root.put("feedlinks", planet.feeds);
         root.put("feeds", syndFeeds);
+        root.put("page", index+1);
+        root.put("pages", pages);
+        root.put("filename", name);
+        root.put("prev", pageName(planet, index-1, pages));
+        root.put("next", pageName(planet, index+1, pages));
+
         try {
             String templateFolder = cutoffTail(planet.templatePath, '/');
             String templateName = planet.templatePath.substring(templateFolder.length());
@@ -165,7 +180,7 @@ public class FeedAggregator {
             cfg.setDefaultEncoding("UTF8");
 
             Template template = cfg.getTemplate(templateName);
-            Writer writer = new FileWriter(new File(planet.outputFolder + separator + "planet.html"));
+            Writer writer = new FileWriter(new File(planet.outputFolder + separator + name));
             template.process(root, writer);
             writer.close();
         } catch (IOException ex) {
@@ -173,6 +188,13 @@ public class FeedAggregator {
         } catch (TemplateException ex) {
             LOG.log(SEVERE, null, ex);
         }
+    }
+
+    private String pageName(Planet planet, int index, int pages) {
+        if(index < 0 || index >= pages) {
+            return null;
+        }
+        return planet.name + (index == 0 ? "" : index) + ".html";
     }
 
     private void createAggregatedFeed(Planet planet, List<SyndEntry> entries) {

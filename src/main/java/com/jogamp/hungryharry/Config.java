@@ -89,6 +89,9 @@ public class Config {
         public final String title;
 
         @XmlAttribute
+        public final String name;
+
+        @XmlAttribute
         public final String description;
 
         @XmlAttribute
@@ -99,6 +102,9 @@ public class Config {
 
         @XmlAttribute
         public final int maxEntries;
+
+        @XmlAttribute
+        public final int maxEntriesPerPage;
 
         @XmlElement(name="feed")
         public final List<PlanetFeed> feeds;
@@ -111,6 +117,7 @@ public class Config {
 
         public Planet() {
             title = null;
+            name = null;
             description = null;
             author = null;
             link = null;
@@ -118,6 +125,7 @@ public class Config {
             templatePath = null;
             outputFolder = null;
             maxEntries = 0;
+            maxEntriesPerPage = Integer.MAX_VALUE;
         }
 
         public String getLink() {

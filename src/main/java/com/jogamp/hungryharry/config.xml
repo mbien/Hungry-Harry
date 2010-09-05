@@ -4,7 +4,9 @@
     <planet title="JogAmp Streams"
             description="JogAmp Aggregated Feeds"
             author="Hungry Harry"
-            maxEntries="6"
+            maxEntries="15"
+            maxEntriesPerPage="5"
+            name="index"
             link="/home/mbien/NetBeansProjects/JOGAMP/stream">
         <feed>atom_0.3</feed>
         <feed>rss_2.0</feed>
