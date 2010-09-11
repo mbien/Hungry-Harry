@@ -8,7 +8,6 @@ import com.jogamp.hungryharry.Config.Planet;
 import com.sun.syndication.feed.synd.SyndContent;
 import com.sun.syndication.io.SyndFeedOutput;
 import com.sun.syndication.feed.synd.SyndEntry;
-import com.sun.syndication.fetcher.FetcherException;
 import com.sun.syndication.io.FeedException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -236,11 +235,7 @@ public class FeedAggregator {
 
                 LOG.info("downloaded "+entries.size()+ " entries");
                 collectedEntries.addAll(entries);
-            } catch (IOException ex) {
-                LOG.log(WARNING, "skipping feed", ex);
-            } catch (FetcherException ex) {
-                LOG.log(WARNING, "skipping feed", ex);
-            } catch (FeedException ex) {
+            } catch (Exception ex) {
                 LOG.log(WARNING, "skipping feed", ex);
             }
         }
