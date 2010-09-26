@@ -31,6 +31,7 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.Writer;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -162,6 +163,7 @@ public class FeedAggregator {
         root.put("page", index+1);
         root.put("pages", pages);
         root.put("filename", name);
+        root.put("updated", new Date());
         root.put("prev", pageName(planet, index-1, pages));
         root.put("next", pageName(planet, index+1, pages));
 
