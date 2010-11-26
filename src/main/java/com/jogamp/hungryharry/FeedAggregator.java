@@ -89,22 +89,22 @@ public class FeedAggregator {
             if(n++ >= planet.maxEntries) {
                 break;
             }
-            SyndContent description = entry.getDescription();
+            SyndContent descriptionSC = entry.getDescription();
             Map<String, Object> map = new HashMap<String, Object>();
             map.put("title", entry.getTitle());
             map.put("link", entry.getLink());
             map.put("author", entry.getAuthor());
             map.put("published", entry.getPublishedDate());
             map.put("updated", entry.getUpdatedDate());
-            map.put("description", description);
+            map.put("description", descriptionSC);
             
             StringBuilder sb = new StringBuilder();
             List contents = entry.getContents();
             for (Object content : contents) {
                 sb.append(((SyndContent)content).getValue());
             }
-            if(sb.length() == 0) {
-                map.put("content", description.getValue());
+            if(sb.length() == 0 && descriptionSC != null) {
+                map.put("content", descriptionSC.getValue());
             }else{
                 map.put("content", sb);
             }
@@ -120,10 +120,10 @@ public class FeedAggregator {
 
                     String filteredDescription = null;
                     //TODO sometimes there is only content
-                    if(description == null) {
+                    if(descriptionSC == null) {
                         filteredDescription = sb.toString();
                     }else{
-                        filteredDescription = description.getValue();
+                        filteredDescription = descriptionSC.getValue();
                         if(template.descriptionfilter != null) {
                             Pattern descPattern = Pattern.compile(template.descriptionfilter);
                             Matcher filter = descPattern.matcher(filteredDescription);
@@ -178,7 +178,7 @@ public class FeedAggregator {
             // Specify how templates will see the data-model. This is an advanced topic...
             // but just use this:
             cfg.setObjectWrapper(ObjectWrapper.DEFAULT_WRAPPER);
-            cfg.setDefaultEncoding("UTF8");
+            cfg.setDefaultEncoding("UTF-8");
 
             Template template = cfg.getTemplate(templateName);
             Writer writer = new FileWriter(new File(planet.outputFolder + separator + name));
