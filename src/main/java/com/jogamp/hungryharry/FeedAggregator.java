@@ -33,7 +33,9 @@ import java.io.Writer;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,7 +54,7 @@ import static java.io.File.*;
  *
  */
 public class FeedAggregator {
-
+    
     private static final Logger LOG = Logger.getLogger(FeedAggregator.class.getName());
     private final String configFile;
 
@@ -143,7 +145,8 @@ public class FeedAggregator {
 
         int max = planet.maxEntriesPerPage;
         int pages = (int) Math.ceil(aggregatedEntries.size() / (float)max);
-        System.out.println(pages);
+        LOG.info("pagecount: "+pages);
+        
         for(int i = 0; i < pages; i++) {
             List<Map<String, Object>> subList = aggregatedEntries.subList(i * max, Math.min(i * max + max, aggregatedEntries.size()-1));
             generatePage(i, pages, syndFeeds, subList, planet);
@@ -222,21 +225,34 @@ public class FeedAggregator {
         }
     }
 
-    private List<SyndEntry> downloadFeeds(List<Feed> feeds, List<SyndFeed> list) throws IllegalArgumentException {
+    private List<SyndEntry> downloadFeeds(List<Feed> feeds, List<SyndFeed> downloadedFeeds) throws IllegalArgumentException {
 
         FeedFetcherCache feedInfoCache = HashMapFeedInfoCache.getInstance();
         FeedFetcher feedFetcher = new HttpURLFeedFetcher(feedInfoCache);
         List<SyndEntry> collectedEntries = new ArrayList<SyndEntry>();
-
+        
+        Set<String> ids = new HashSet<String>();
+        
         for (Config.Feed feed : feeds) {
             LOG.info("downloading "+feed);
             try {
                 SyndFeed inFeed = feedFetcher.retrieveFeed(new URL(feed.url));
-                list.add(inFeed);
-                List entries = inFeed.getEntries();
+                downloadedFeeds.add(inFeed);
+                List<SyndEntry> entries = inFeed.getEntries();
 
                 LOG.info("downloaded "+entries.size()+ " entries");
-                collectedEntries.addAll(entries);
+                
+                //skip duplicates
+                for (SyndEntry entry : entries) {
+                    String uid = entry.getLink();
+                    if(!ids.contains(uid)) {
+                        ids.add(uid);
+                        collectedEntries.add(entry);
+                    }else{
+                        LOG.info("skiping duplicate entry: "+uid);
+                    }
+                }
+                
             } catch (Exception ex) {
                 LOG.log(WARNING, "skipping feed", ex);
             }
